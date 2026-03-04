@@ -13,6 +13,21 @@ class MS2CModel(nn.Module):
         # Vision Transformer (ViT) processes UI screenshots as visual tokens
         self.vit = ViTModel.from_pretrained("google/vit-base-patch16-224")
 
+        # [MEMORY OPTIMIZATION]: Partial Layer Freezing
+        # Freezing the first 6 layers of CodeBERT to reduce memory pressure
+        for param in self.codebert.embeddings.parameters():
+            param.requires_grad = False
+        for layer in self.codebert.encoder.layer[:6]:
+            for param in layer.parameters():
+                param.requires_grad = False
+
+        # Freezing the first 6 layers of ViT to stop 'Swap' usage
+        for param in self.vit.embeddings.parameters():
+            param.requires_grad = False
+        for layer in self.vit.encoder.layer[:6]:
+            for param in layer.parameters():
+                param.requires_grad = False
+
         # 2. GEOMETRIC FEATURE ALIGNMENT (MLP Head)
         # This trainable component maps visual features into code's semantic space
         # It is initialized with no pre-trained weights to learn mapping from scratch

@@ -22,8 +22,14 @@ class MS2CDataset(Dataset):
         # Initialize Encoders
         # CodeBERT handles natural language and AST nodes
         self.tokenizer = AutoTokenizer.from_pretrained("microsoft/codebert-base")
-        # ViT processor handles image resizing and normalization
-        self.processor = ViTImageProcessor.from_pretrained("google/vit-base-patch16-224")
+        # [OPTIMIZATION]: Disable resizing since images are already 224x224
+        # This reduces CPU load and memory pressure during the fetch phase
+        self.processor = ViTImageProcessor.from_pretrained(
+            "google/vit-base-patch16-224",
+            do_resize=False,
+            do_rescale=True,  # Still needed for pixel normalization
+            do_normalize=True
+        )
 
         # [EDIT]: Initialize the AST Parser to clean code nodes during fetching
         self.ast_parser = ASTParser()
@@ -46,7 +52,7 @@ class MS2CDataset(Dataset):
         seed_img = Image.open(seed_img_path).convert("RGB")
 
         # 3. ROUTE: Code Nodes (Positive & Negative)
-        # [EDIT]: Passing raw strings through ASTParser to ensure clean tokenization
+        # Passing raw strings through ASTParser to ensure clean tokenization
         pos_code = self.ast_parser.get_clean_node_text(entry['positive_node'])
         neg_code = self.ast_parser.get_clean_node_text(entry['negative_node'])
 
@@ -61,7 +67,7 @@ class MS2CDataset(Dataset):
         # 5. TEXT: The user's natural language bug report
         text_query = entry['text_anchor']
 
-        # Pre-processing images to 224x224 for the ViT Encoder
+        # [OPTIMIZED]: Processor now handles normalization without redundant resizing
         pixel_values = self.processor(images=buggy_img, return_tensors="pt").pixel_values.squeeze(0)
         seed_pixels = self.processor(images=seed_img, return_tensors="pt").pixel_values.squeeze(0)
 
